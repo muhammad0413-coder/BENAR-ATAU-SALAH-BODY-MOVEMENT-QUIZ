@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benar atau Salah - Body Movement Quiz</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- MediaPipe Pose -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0f7ff; /* Biru muda */
+            overflow-x: hidden;
+            touch-action: pan-y;
+        }
+        h1, h2, h3, h4, h5, h6, .font-heading {
+            font-family: 'Fredoka', sans-serif;
+        }
+        
+        /* Mirror Video and Canvas */
+        .mirrored {
+            transform: scaleX(-1);
+        }
+
+        /* Animations */
+        @keyframes pulse-zone {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        .zone-active {
+            animation: pulse-zone 1s infinite;
+            border: 8px solid white;
+            box-shadow: 0 0 30px rgba(255,255,255,0.8);
+        }
+
+        @keyframes countdown-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        .countdown-anim {
+            animation: countdown-pop 1s ease-in-out forwards;
+        }
+
+        .hide { display: none !important; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+        /* Game Zones */
+        .zone-benar { background: linear-gradient(135deg, rgba(34,197,94,0.3), rgba(21,128,61,0.5)); border-right: 4px dashed rgba(255,255,255,0.5); }
+        .zone-salah { background: linear-gradient(135deg, rgba(239,68,68,0.3), rgba(185,28,28,0.5)); border-left: 4px dashed rgba(255,255,255,0.5); }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800 flex flex-col items-center selection:bg-blue-300">
+
+    <!-- Global Custom Modal / Alert -->
+    <div id="custom-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hide backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl transform transition-all text-center">
+            <div id="modal-icon" class="text-5xl mb-4"></div>
+            <h3 id="modal-title" class="text-2xl font-heading font-bold text-gray-800 mb-2"></h3>
+            <p id="modal-message" class="text-gray-600 mb-6 text-lg"></p>
+            <div id="modal-actions" class="flex justify-center gap-4">
+                <!-- Buttons injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="app" class="w-full max-w-7xl mx-auto flex-grow relative flex flex-col">
+        
+        <!-- ==================== SCREEN: HOME ==================== -->
+        <div id="screen-home" class="flex-grow flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-white p-10 rounded-3xl shadow-xl w-full max-w-3xl border-4 border-blue-100">
+                <i class="fa-solid fa-gamepad text-7xl text-blue-500 mb-6 drop-shadow-md"></i>
+                <h1 class="text-5xl md:text-6xl font-heading font-bold text-blue-700 mb-4 tracking-wide text-shadow">BENAR <span class="text-gray-400">ATAU</span> SALAH</h1>
+                <p class="text-xl md:text-2xl text-orange-500 font-bold mb-8 uppercase tracking-wider">"Belajar, Bergerak, dan Bermain!"</p>
+                
+                <div class="flex flex-col md:flex-row justify-center gap-6 mb-8">
+                    <div class="bg-green-100 border-2 border-green-500 text-green-700 p-4 rounded-2xl flex-1 font-bold">
+                        <i class="fa-solid fa-check-circle text-2xl mb-2 block"></i> ZONA KIRI: BENAR
+                    </div>
+                    <div class="bg-red-100 border-2 border-red-500 text-red-700 p-4 rounded-2xl flex-1 font-bold">
+                        <i class="fa-solid fa-times-circle text-2xl mb-2 block"></i> ZONA KANAN: SALAH
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-4 max-w-md mx-auto">
+                    <button onclick="navTo('screen-classes')" class="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-5 px-8 rounded-full shadow-[0_8px_0_rgb(29,78,216)] active:shadow-[0_0px_0_rgb(29,78,216)] active:translate-y-2 transition-all">
+                        <i class="fa-solid fa-play mr-2"></i> MULAI BERMAIN
+                    </button>
+                    <button onclick="showGuide()" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 text-xl font-bold py-4 px-8 rounded-full shadow-[0_6px_0_rgb(202,138,4)] active:shadow-[0_0px_0_rgb(202,138,4)] active:translate-y-1 transition-all">
+                        <i class="fa-solid fa-book-open mr-2"></i> PANDUAN MAIN
+                    </button>
+                </div>
+                
+                <p class="mt-8 text-sm text-gray-500"><i class="fa-solid fa-video text-blue-400"></i> Game ini memerlukan akses kamera (Webcam).</p>
+            </div>
+            
+            <!-- Hidden Login Trigger in Footer -->
+            <div class="mt-12 opacity-30 hover:opacity-100 transition-opacity cursor-pointer p-4" onclick="triggerHiddenLogin()">
+                <i class="fa-solid fa-shield-halved text-gray-400 text-xl"></i>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: CLASSES ==================== -->
+        <div id="screen-classes" class="hide flex-grow flex flex-col p-6">
+            <button onclick="navTo('screen-home')" class="self-start mb-6 text-blue-600 hover:text-blue-800 font-bold text-lg"><i class="fa-solid fa-arrow-left mr-2"></i> Kembali</button>
+            <h2 class="text-4xl font-heading font-bold text-center text-blue-800 mb-2">PILIH KELASMU</h2>
+            <p class="text-center text-gray-600 mb-10 text-xl">Kelas berapa kamu sekarang?</p>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
+                <!-- Injected via JS -->
+                <script>
+                    const classColors = ['bg-pink-500', 'bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-orange-500'];
+                    for(let i=1; i<=6; i++) {
+                        document.write(`
+                        <button onclick="selectClass(${i})" class="${classColors[i-1]} hover:opacity-90 text-white p-8 rounded-3xl shadow-[0_8px_0_rgba(0,0,0,0.2)] active:shadow-none active:translate-y-2 transition-all flex flex-col items-center justify-center gap-4 group">
+                            <span class="text-6xl font-heading font-bold drop-shadow-md group-hover:scale-110 transition-transform">${i}</span>
+                            <span class="text-2xl font-bold tracking-widest">KELAS</span>
+                        </button>`);
+                    }
+                </script>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: SUBJECTS ==================== -->
+        <div id="screen-subjects" class="hide flex-grow flex flex-col p-6">
+            <button onclick="navTo('screen-classes')" class="self-start mb-6 text-blue-600 hover:text-blue-800 font-bold text-lg"><i class="fa-solid fa-arrow-left mr-2"></i> Kembali</button>
+            <h2 class="text-4xl font-heading font-bold text-center text-blue-800 mb-2">PILIH MATA PELAJARAN</h2>
+            <p id="subject-subtitle" class="text-center text-gray-600 mb-10 text-xl">Kelas X</p>
+            
+            <div id="subject-list" class="flex flex-col gap-4 max-w-3xl mx-auto w-full">
+                <!-- Loaded from backend -->
+                <div class="text-center py-10 text-gray-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-4"></i><br>Memuat mata pelajaran...</div>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: CALIBRATION & CAM PERMISSION ==================== -->
+        <div id="screen-calibration" class="hide flex-grow flex flex-col p-6 items-center">
+            <button onclick="stopGameAndReturn()" class="self-start mb-4 text-red-600 hover:text-red-800 font-bold text-lg"><i class="fa-solid fa-times mr-2"></i> Batal</button>
+            
+            <div class="bg-white p-6 rounded-3xl shadow-lg w-full max-w-4xl text-center">
+                <h2 class="text-3xl font-heading font-bold text-blue-800 mb-4"><i class="fa-solid fa-camera text-blue-500"></i> PERSIAPAN KAMERA</h2>
+                <p class="text-lg text-gray-700 mb-6">Berdirilah 1-2 meter di depan kamera. Pastikan area di kiri dan kananmu kosong.</p>
+                
+                <div class="relative w-full aspect-video bg-gray-900 rounded-2xl overflow-hidden mb-6 border-4 border-gray-200 shadow-inner">
+                    <video id="calib-video" class="absolute inset-0 w-full h-full object-cover mirrored" autoplay playsinline></video>
+                    <canvas id="calib-canvas" class="absolute inset-0 w-full h-full mirrored z-10"></canvas>
+                    
+                    <!-- Overlay Guides -->
+                    <div class="absolute inset-0 z-20 flex pointer-events-none">
+                        <div class="w-1/3 h-full border-r-4 border-dashed border-white/50 bg-green-500/10 flex items-center justify-center"><span class="text-white/50 font-bold text-2xl rotate-90 md:rotate-0 tracking-widest">BENAR</span></div>
+                        <div class="w-1/3 h-full border-r-4 border-dashed border-white/50 flex items-center justify-center flex-col">
+                            <div class="border-2 border-white/50 rounded-full w-24 h-24 mb-4"></div> <!-- Head guide -->
+                            <div class="border-2 border-white/50 rounded-xl w-32 h-40"></div> <!-- Body guide -->
+                        </div>
+                        <div class="w-1/3 h-full bg-red-500/10 flex items-center justify-center"><span class="text-white/50 font-bold text-2xl -rotate-90 md:rotate-0 tracking-widest">SALAH</span></div>
+                    </div>
+
+                    <div id="cam-loading" class="absolute inset-0 z-30 bg-gray-900 flex flex-col items-center justify-center text-white">
+                        <i class="fa-solid fa-spinner fa-spin text-5xl mb-4"></i>
+                        <p class="text-xl">Memulai Kamera...</p>
+                    </div>
+                </div>
+
+                <div id="calib-status" class="text-xl font-bold p-3 rounded-xl bg-yellow-100 text-yellow-800 mb-6">
+                    Mendeteksi posisi tubuh... Silakan berdiri di tengah.
+                </div>
+
+                <button id="btn-start-quiz" disabled onclick="startGameplay()" class="bg-gray-400 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-[0_6px_0_rgb(156,163,175)] transition-all cursor-not-allowed">
+                    MENUNGGU POSISI...
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: GAMEPLAY ==================== -->
+        <div id="screen-game" class="hide flex-grow flex flex-col fixed inset-0 z-40 bg-black">
+            <!-- Background Camera -->
+            <video id="game-video" class="absolute inset-0 w-full h-full object-cover mirrored opacity-40" autoplay playsinline></video>
+            <canvas id="game-canvas" class="absolute inset-0 w-full h-full mirrored z-10"></canvas>
+
+            <!-- Game UI Layer -->
+            <div class="absolute inset-0 z-20 flex flex-col">
+                
+                <!-- Top Bar -->
+                <div class="flex justify-between items-start p-6">
+                    <div class="bg-white/90 backdrop-blur rounded-2xl px-6 py-3 shadow-lg border-2 border-blue-200 text-blue-900 font-bold text-xl flex items-center">
+                        <i class="fa-solid fa-layer-group mr-3 text-blue-500 text-2xl"></i> Soal: <span id="game-q-num" class="ml-2 text-2xl font-heading">1 / 10</span>
+                    </div>
+                    <button onclick="confirmExitGame()" class="bg-white/90 backdrop-blur hover:bg-red-50 text-red-600 rounded-2xl px-6 py-3 shadow-lg border-2 border-red-200 font-bold text-lg transition-colors">
+                        <i class="fa-solid fa-right-from-bracket mr-2"></i> KELUAR
+                    </button>
+                </div>
+
+                <!-- Central Question Area -->
+                <div class="flex-grow flex flex-col items-center justify-center p-8 text-center pointer-events-none">
+                    <div id="question-card" class="bg-white/95 backdrop-blur-md rounded-3xl p-8 shadow-2xl border-4 border-blue-400 max-w-4xl w-full transform transition-transform scale-100">
+                        <h3 id="game-subject" class="text-blue-500 font-bold text-xl uppercase tracking-wider mb-2">MATEMATIKA</h3>
+                        <p id="game-question" class="text-4xl md:text-6xl font-heading font-bold text-gray-800 leading-tight">5 + 5 = 10</p>
+                    </div>
+
+                    <!-- Giant Countdown -->
+                    <div id="game-countdown" class="text-9xl font-heading font-bold text-white drop-shadow-[0_0_20px_rgba(0,0,0,0.8)] mt-10 opacity-0 h-32">
+                        5
+                    </div>
+                </div>
+
+                <!-- Answer Explanation Modal (In-game overlay) -->
+                <div id="game-explanation" class="absolute inset-0 z-50 bg-black/80 hidden flex-col items-center justify-center p-6 text-center backdrop-blur-sm">
+                    <div id="expl-icon" class="text-8xl mb-6"></div>
+                    <h2 id="expl-title" class="text-5xl font-heading font-bold text-white mb-4 drop-shadow-lg">HEBAT!</h2>
+                    <p id="expl-text" class="text-2xl text-white bg-blue-900/60 p-6 rounded-2xl max-w-3xl border border-blue-400 mb-8 leading-relaxed"></p>
+                    <button onclick="nextQuestion()" class="bg-blue-500 hover:bg-blue-600 text-white text-3xl font-bold py-5 px-12 rounded-full shadow-[0_8px_0_rgb(29,78,216)] active:shadow-none active:translate-y-2 transition-all">
+                        SOAL BERIKUTNYA <i class="fa-solid fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+
+                <!-- Zones Indicator at Bottom -->
+                <div class="flex h-32 w-full mt-auto pointer-events-none">
+                    <div id="zone-left-ui" class="w-1/3 zone-benar flex items-center justify-center transition-all duration-300">
+                        <span class="text-white text-4xl md:text-5xl font-heading font-bold tracking-widest drop-shadow-md"><i class="fa-solid fa-arrow-left mr-4"></i>BENAR</span>
+                    </div>
+                    <div id="zone-center-ui" class="w-1/3 flex flex-col items-center justify-center">
+                        <span id="pos-warning" class="bg-black/60 text-white px-4 py-2 rounded-full font-bold text-sm hidden">Posisi tidak terdeteksi!</span>
+                    </div>
+                    <div id="zone-right-ui" class="w-1/3 zone-salah flex items-center justify-center transition-all duration-300">
+                        <span class="text-white text-4xl md:text-5xl font-heading font-bold tracking-widest drop-shadow-md">SALAH<i class="fa-solid fa-arrow-right ml-4"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: RESULTS ==================== -->
+        <div id="screen-result" class="hide flex-grow flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-4xl border-4 border-yellow-400">
+                <i class="fa-solid fa-trophy text-7xl text-yellow-500 mb-4 drop-shadow-lg"></i>
+                <h2 class="text-5xl font-heading font-bold text-blue-800 mb-2">PERMAINAN SELESAI!</h2>
+                <p id="result-motivation" class="text-2xl text-orange-500 font-bold mb-8">Luar biasa! Kamu sudah berusaha dengan baik.</p>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                    <div class="bg-blue-50 p-4 rounded-2xl border border-blue-200">
+                        <p class="text-gray-500 font-bold uppercase text-sm mb-1">Total Soal</p>
+                        <p id="res-total" class="text-4xl font-heading font-bold text-blue-700">10</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-2xl border border-green-200">
+                        <p class="text-gray-500 font-bold uppercase text-sm mb-1">Benar</p>
+                        <p id="res-benar" class="text-4xl font-heading font-bold text-green-600">8</p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-2xl border border-red-200">
+                        <p class="text-gray-500 font-bold uppercase text-sm mb-1">Salah</p>
+                        <p id="res-salah" class="text-4xl font-heading font-bold text-red-600">2</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                        <p class="text-gray-500 font-bold uppercase text-sm mb-1">Tidak Jawab</p>
+                        <p id="res-kosong" class="text-4xl font-heading font-bold text-gray-600">0</p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-3xl mb-10 text-white shadow-inner">
+                    <p class="text-xl font-bold mb-2">SKOR AKHIR</p>
+                    <p id="res-score" class="text-7xl font-heading font-bold text-yellow-300 drop-shadow-md">80</p>
+                </div>
+
+                <div class="flex flex-col md:flex-row justify-center gap-6">
+                    <button onclick="navTo('screen-home')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-xl font-bold py-4 px-8 rounded-full shadow-[0_6px_0_rgb(209,213,219)] active:shadow-none active:translate-y-2 transition-all">
+                        <i class="fa-solid fa-home mr-2"></i> MENU UTAMA
+                    </button>
+                    <!-- Ulangi subject yg sama -->
+                    <button onclick="startSubjectGame(currentSubjectId, currentSubjectName)" class="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-8 rounded-full shadow-[0_6px_0_rgb(29,78,216)] active:shadow-none active:translate-y-2 transition-all">
+                        <i class="fa-solid fa-rotate-right mr-2"></i> MAIN LAGI
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: HIDDEN LOGIN ==================== -->
+        <div id="screen-login" class="hide flex-grow flex flex-col items-center justify-center p-6">
+            <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-gray-200">
+                <div class="text-center mb-8">
+                    <i class="fa-solid fa-user-shield text-5xl text-gray-700 mb-4"></i>
+                    <h2 class="text-3xl font-heading font-bold text-gray-800">PORTAL GURU</h2>
+                    <p class="text-gray-500 mt-2">Area terbatas untuk pengelola kuis.</p>
+                </div>
+
+                <!-- Toggle Admin/Guru -->
+                <div class="flex rounded-lg bg-gray-100 p-1 mb-6">
+                    <button id="tab-login-guru" onclick="setLoginType('guru')" class="flex-1 py-2 font-bold rounded-md bg-white shadow text-blue-600 transition-all">GURU</button>
+                    <button id="tab-login-admin" onclick="setLoginType('admin')" class="flex-1 py-2 font-bold rounded-md text-gray-500 hover:text-gray-700 transition-all">ADMIN</button>
+                </div>
+
+                <form id="form-login" onsubmit="handleLogin(event)" class="space-y-6">
+                    <div>
+                        <label id="lbl-username" class="block text-sm font-bold text-gray-700 mb-2">Nama Guru (Sesuai Data)</label>
+                        <input type="text" id="login-username" required class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:ring-0 transition-colors bg-gray-50" placeholder="Masukkan nama lengkap...">
+                    </div>
+                    <div id="wrap-password" class="hide">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Kata Sandi</label>
+                        <input type="password" id="login-password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:ring-0 transition-colors bg-gray-50" placeholder="Masukkan password...">
+                    </div>
+                    <button type="submit" class="w-full bg-gray-800 hover:bg-black text-white text-lg font-bold py-4 rounded-xl shadow-lg transition-all flex justify-center items-center">
+                        <span id="btn-login-text">MASUK</span>
+                    </button>
+                </form>
+                
+                <button onclick="navTo('screen-home')" class="mt-6 w-full text-center text-gray-500 hover:text-gray-800 font-bold">Kembali ke Game</button>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN: DASHBOARD (ADMIN & TEACHER) ==================== -->
+        <div id="screen-dashboard" class="hide flex-grow flex flex-col bg-gray-50 -mx-4 sm:mx-0 sm:rounded-3xl sm:shadow-xl sm:border border-gray-200 overflow-hidden mb-8">
+            <!-- Header -->
+            <div class="bg-gray-800 text-white p-6 flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-heading font-bold" id="dash-title">DASHBOARD</h2>
+                    <p class="text-sm text-gray-400" id="dash-subtitle">Selamat datang, Pengguna</p>
+                </div>
+                <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow">
+                    <i class="fa-solid fa-power-off mr-2"></i>LOGOUT
+                </button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-6 flex-grow overflow-y-auto" id="dash-content">
+                <!-- Injected via JS based on role -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- AUDIO (Using Web Audio API via JS synthesizer for compliance with rules) -->
+    
+    <script>
+        // ==========================================
+        // CONSTANTS & STATE
+        // ==========================================
+        const API_URL = "https://script.google.com/macros/s/AKfycbwy_6mzsSKv824KwEp7U0klRplTdBF9HqU1cA4S2EOHwmxXYX8ukh-AN6TrgUrcdsbxuQ/exec";
+        
+        let state = {
+            classId: null,
+            subjectId: null,
+            subjectName: '',
+            questions: [],
+            currentQIndex: 0,
+            score: 0,
+            correct: 0,
+            wrong: 0,
+            unanswered: 0,
+            user: null, // Logged in user (admin/guru)
+            token: localStorage.getItem('bmq_token') || null
+        };
+
+        // UI Helpers
+        function _id(id) { return document.getElementById(id); }
+        
+        function hideAllScreens() {
+            const screens = ['screen-home', 'screen-classes', 'screen-subjects', 'screen-calibration', 'screen-game', 'screen-result', 'screen-login', 'screen-dashboard'];
+            screens.forEach(s => {
+                if(_id(s)) _id(s).classList.add('hide');
+            });
+        }
+
+        function navTo(screenId) {
+            if(screenId === 'screen-home' && poseTracker) stopCamera(); // Cleanup
+            hideAllScreens();
+            _id(screenId).classList.remove('hide');
+            window.scrollTo(0,0);
+        }
+
+        function showModal(title, message, type = 'info', onConfirm = null) {
+            const modal = _id('custom-modal');
+            const icon = _id('modal-icon');
+            const actions = _id('modal-actions');
+            
+            _id('modal-title').textContent = title;
+            _id('modal-message').textContent = message;
+            
+            let iconHtml = '<i class="fa-solid fa-info-circle text-blue-500"></i>';
+            if(type === 'error') iconHtml = '<i class="fa-solid fa-circle-xmark text-red-500"></i>';
+            if(type === 'success') iconHtml = '<i class="fa-solid fa-circle-check text-green-500"></i>';
+            if(type === 'warning') iconHtml = '<i class="fa-solid fa-triangle-exclamation text-yellow-500"></i>';
+            icon.innerHTML = iconHtml;
+
+            actions.innerHTML = '';
+            if(onConfirm) {
+                const btnCancel = document.createElement('button');
+                btnCancel.className = "px-6 py-2 rounded-full font-bold text-gray-600 bg-gray-200 hover:bg-gray-300 transition-colors";
+                btnCancel.textContent = "Batal";
+                btnCancel.onclick = () => modal.classList.add('hide');
+                
+                const btnOk = document.createElement('button');
+                btnOk.className = "px-6 py-2 rounded-full font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md";
+                btnOk.textContent = "Ya, Lanjutkan";
+                btnOk.onclick = () => { modal.classList.add('hide'); onConfirm(); };
+                
+                actions.appendChild(btnCancel);
+                actions.appendChild(btnOk);
+            } else {
+                const btnOk = document.createElement('button');
+                btnOk.className = "px-8 py-3 rounded-full font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md w-full";
+                btnOk.textContent = "Tutup";
+                btnOk.onclick = () => modal.classList.add('hide');
+                actions.appendChild(btnOk);
+            }
+            
+            modal.classList.remove('hide');
+        }
+
+        // Simple Beep Synthesizer for Kids App
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            if(type === 'tick') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'correct') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.setValueAtTime(600, now + 0.1);
+                osc.frequency.setValueAtTime(1000, now + 0.2);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(150, now + 0.4);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+        }
+
+        // ==========================================
+        // API FETCH WRAPPER
+        // ==========================================
+        async function fetchAPI(action, payload = {}) {
+            try {
+                // To avoid CORS preflight issues with GAS, we use Content-Type text/plain and JSON.stringify
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: action,
+                        token: state.token,
+                        payload: payload
+                    }),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                
+                const data = await response.json();
+                if(data.status === 'error' && data.message.includes('Token tidak valid')) {
+                    // Session expired
+                    localStorage.removeItem('bmq_token');
+                    state.token = null;
+                    if(!_id('screen-home').classList.contains('hide')) return data; // Already home
+                    showModal('Sesi Habis', 'Sesi login Anda telah berakhir. Silakan login kembali.', 'error');
+                    navTo('screen-home');
+                    return {status: 'error', message: 'Unauthorized'};
+                }
+                return data;
+            } catch (err) {
+                console.error("API Error:", err);
+                return { status: 'error', message: 'Koneksi ke server gagal. Pastikan URL backend benar.' };
+            }
+        }
+
+        // ==========================================
+        // GAME FLOW
+        // ==========================================
+        function showGuide() {
+            showModal("Panduan Bermain", 
+            "1. Pilih Kelas dan Mata Pelajaran.\n2. Berdiri 1-2 meter di depan kamera (Webcam).\n3. Akan muncul soal di layar.\n4. Bergeraklah ke KIRI untuk menjawab BENAR.\n5. Bergeraklah ke KANAN untuk menjawab SALAH.\n6. Tahan posisimu selama 5 detik hitung mundur!\n\nPastikan area sekitarmu aman untuk bergerak.", "info");
+        }
+
+        function selectClass(classNum) {
+            state.classId = classNum;
+            _id('subject-subtitle').textContent = `Mata Pelajaran Kelas ${classNum}`;
+            navTo('screen-subjects');
+            loadSubjects();
+        }
+
+        async function loadSubjects() {
+            const list = _id('subject-list');
+            list.innerHTML = `<div class="text-center py-10 text-gray-500"><i class="fa-solid fa-spinner fa-spin text-3xl mb-4"></i><br>Mencari mata pelajaran...</div>`;
+            
+            const res = await fetchAPI('getSubjects', { kelas_id: state.classId });
+            
+            if(res.status === 'success' && res.data.length > 0) {
+                list.innerHTML = '';
+                res.data.forEach(sub => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-white border-2 border-blue-200 hover:border-blue-500 hover:bg-blue-50 text-blue-800 text-xl font-bold py-5 px-6 rounded-2xl shadow-sm transition-all text-left flex items-center justify-between group";
+                    btn.innerHTML = `<span>${sub.nama}</span> <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-blue-500 transition-colors"></i>`;
+                    btn.onclick = () => startSubjectGame(sub.id, sub.nama);
+                    list.appendChild(btn);
+                });
+            } else {
+                list.innerHTML = `
+                    <div class="bg-yellow-50 border-2 border-yellow-200 p-8 rounded-3xl text-center">
+                        <i class="fa-solid fa-folder-open text-5xl text-yellow-400 mb-4"></i>
+                        <h3 class="text-xl font-bold text-yellow-800 mb-2">Belum Ada Soal</h3>
+                        <p class="text-gray-600">Belum ada mata pelajaran atau soal yang aktif untuk Kelas ${state.classId}.<br>Silakan hubungi guru.</p>
+                        <button onclick="navTo('screen-classes')" class="mt-6 px-6 py-2 bg-yellow-500 text-white font-bold rounded-full hover:bg-yellow-600">Kembali</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function startSubjectGame(subId, subName) {
+            state.subjectId = subId;
+            state.subjectName = subName;
+            
+            // Show loading overlay (simple way)
+            document.body.insertAdjacentHTML('beforeend', `<div id="loading-overlay" class="fixed inset-0 bg-white/80 z-[100] flex flex-col items-center justify-center backdrop-blur-sm"><i class="fa-solid fa-spinner fa-spin text-6xl text-blue-600 mb-4"></i><p class="text-2xl font-bold text-blue-800">Menyiapkan Soal...</p></div>`);
+            
+            const res = await fetchAPI('getGameQuestions', { kelas_id: state.classId, subject_id: subId });
+            _id('loading-overlay').remove();
+            
+            if(res.status === 'success' && res.data.length > 0) {
+                state.questions = res.data;
+                state.currentQIndex = 0;
+                state.score = 0;
+                state.correct = 0;
+                state.wrong = 0;
+                state.unanswered = 0;
+                
+                navTo('screen-calibration');
+                initCamera();
+            } else {
+                showModal("Maaf", "Tidak ada soal yang tersedia untuk mata pelajaran ini.", "warning");
+            }
+        }
+
+        // ==========================================
+        // CAMERA & POSE DETECTION
+        // ==========================================
+        let camera = null;
+        let poseTracker = null;
+        let isCalibrating = false;
+        let isPlaying = false;
+        let currentZone = 'center'; // left (benar), center, right (salah)
+        let lockZone = false;
+
+        function initCamera() {
+            const videoElement = _id('calib-video');
+            const canvasElement = _id('calib-canvas');
+            const canvasCtx = canvasElement.getContext('2d');
+            _id('btn-start-quiz').disabled = true;
+            _id('btn-start-quiz').className = "bg-gray-400 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-[0_6px_0_rgb(156,163,175)] cursor-not-allowed";
+            _id('btn-start-quiz').textContent = "MENUNGGU POSISI...";
+            _id('cam-loading').classList.remove('hide');
+            _id('calib-status').textContent = "Menginisialisasi MediaPipe...";
+            _id('calib-status').className = "text-xl font-bold p-3 rounded-xl bg-yellow-100 text-yellow-800 mb-6";
+
+            if(!poseTracker) {
+                poseTracker = new Pose({locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                }});
+
+                poseTracker.setOptions({
+                    modelComplexity: 1, // Faster for web
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    smoothSegmentation: false,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
+                });
+
+                poseTracker.onResults(onPoseResults);
+            }
+
+            if(!camera) {
+                camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await poseTracker.send({image: videoElement});
+                    },
+                    width: 640,
+                    height: 480
+                });
+            }
+
+            camera.start().then(() => {
+                _id('cam-loading').classList.add('hide');
+                // Adjust canvas size
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+                isCalibrating = true;
+                _id('calib-status').textContent = "Berdirilah agar tubuh bagian atas terlihat!";
+            }).catch(err => {
+                _id('cam-loading').classList.add('hide');
+                showModal("Kamera Error", "Gagal mengakses kamera. Pastikan izin diberikan di browser.", "error", stopGameAndReturn);
+            });
+        }
+
+        function stopCamera() {
+            isCalibrating = false;
+            isPlaying = false;
+            if(camera) {
+                camera.stop();
+                // Stop tracks explicitly to turn off cam light
+                const stream = _id('calib-video').srcObject || _id('game-video').srcObject;
+                if(stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                camera = null;
+            }
+        }
+
+        function stopGameAndReturn() {
+            stopCamera();
+            navTo('screen-home');
+        }
+
+        function confirmExitGame() {
+            showModal("Keluar Permainan?", "Apakah kamu yakin ingin berhenti bermain? Progres tidak akan disimpan.", "warning", stopGameAndReturn);
+        }
+
+        function onPoseResults(results) {
+            // Draw on active canvas
+            let canvasElement, canvasCtx;
+            if(isCalibrating) {
+                canvasElement = _id('calib-canvas');
+            } else if(isPlaying) {
+                canvasElement = _id('game-canvas');
+            } else {
+                return; // Not active
+            }
+            
+            canvasCtx = canvasElement.getContext('2d');
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            // Note: Canvas is mirrored via CSS. MediaPipe coordinates (x=0 left, x=1 right) 
+            // correspond to the ORIGINAL camera feed. 
+            // On a mirrored screen, original Left is shown on the Right.
+            // So if user moves left (physically), landmark.x decreases (approaches 0).
+            // On mirrored screen, this looks like they moved to the LEFT side of the screen.
+            // Zone mapping for Mirrored View (User moves left -> Screen Left -> Benar):
+            // Physical User moves Left -> landmark.x < 0.35
+            // However, we want Screen Left = Benar. 
+            // In mirror, Screen Left is actually the Right side of the original camera frame (x > 0.65).
+            // Let's verify: 
+            // Stand in middle (x=0.5). Move physical left. Camera sees you on its right side -> x increases to 0.8.
+            // Mirrored screen shows you moving to the left side of the screen.
+            // Therefore: x > 0.65 is Screen Left (BENAR). x < 0.35 is Screen Right (SALAH).
+
+            if (results.poseLandmarks && results.poseLandmarks.length > 0) {
+                const landmarks = results.poseLandmarks;
+                
+                // Get shoulders midpoint
+                const leftShoulder = landmarks[11];
+                const rightShoulder = landmarks[12];
+                
+                if(leftShoulder.visibility > 0.5 && rightShoulder.visibility > 0.5) {
+                    const midX = (leftShoulder.x + rightShoulder.x) / 2;
+                    
+                    // Draw a big dot on the chest for visual feedback on the MIRRORED canvas
+                    // To draw correctly on a mirrored canvas (scaledX(-1)), we draw at (x * width).
+                    // Actually, if canvas is mirrored via CSS, drawing at (0.8 * width) will physically appear on the left (0.2 * width).
+                    // So we just draw using raw coordinates, CSS handles the mirror!
+                    const pxX = midX * canvasElement.width;
+                    const pxY = ((leftShoulder.y + rightShoulder.y) / 2) * canvasElement.height;
+                    
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(pxX, pxY, 15, 0, 2 * Math.PI);
+                    canvasCtx.fillStyle = '#3b82f6'; // Blue dot
+                    canvasCtx.fill();
+                    canvasCtx.lineWidth = 4;
+                    canvasCtx.strokeStyle = 'white';
+                    canvasCtx.stroke();
+
+                    // Determine Zone
+                    let newZone = 'center';
+                    if(midX > 0.65) newZone = 'left'; // Screen Left (BENAR) due to mirror
+                    else if (midX < 0.35) newZone = 'right'; // Screen Right (SALAH) due to mirror
+
+                    updateZone(newZone);
+
+                    if(isCalibrating) {
+                        _id('calib-status').textContent = "Posisi terdeteksi! Siap bermain.";
+                        _id('calib-status').className = "text-xl font-bold p-3 rounded-xl bg-green-100 text-green-800 mb-6";
+                        const btn = _id('btn-start-quiz');
+                        if(btn.disabled) {
+                            btn.disabled = false;
+                            btn.className = "bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-[0_6px_0_rgb(21,128,61)] active:shadow-none active:translate-y-2 transition-all cursor-pointer animate-bounce";
+                            btn.innerHTML = "MULAI KUIS <i class='fa-solid fa-play ml-2'></i>";
+                        }
+                    }
+
+                } else {
+                    lostTracking();
+                }
+            } else {
+                lostTracking();
+            }
+            canvasCtx.restore();
+        }
+
+        function lostTracking() {
+            if(isCalibrating) {
+                _id('calib-status').textContent = "Posisi tubuh hilang. Berdiri di depan kamera!";
+                _id('calib-status').className = "text-xl font-bold p-3 rounded-xl bg-red-100 text-red-800 mb-6";
+            }
+            if(!lockZone) updateZone('none');
+        }
+
+        function updateZone(newZone) {
+            if(lockZone) return; // Prevent changes during explanation
+            
+            if(currentZone !== newZone) {
+                currentZone = newZone;
+                
+                if(isPlaying) {
+                    const l = _id('zone-left-ui');
+                    const r = _id('zone-right-ui');
+                    const w = _id('pos-warning');
+                    
+                    l.classList.remove('zone-active');
+                    r.classList.remove('zone-active');
+                    w.classList.add('hidden');
+
+                    if(currentZone === 'left') l.classList.add('zone-active');
+                    else if (currentZone === 'right') r.classList.add('zone-active');
+                    else if (currentZone === 'none') w.classList.remove('hidden');
+                }
+            }
+        }
+
+        // ==========================================
+        // GAMEPLAY LOGIC
+        // ==========================================
+        let countdownTimer;
+
+        function startGameplay() {
+            isCalibrating = false;
+            isPlaying = true;
+            
+            // Move video source to game screen
+            const gameVideo = _id('game-video');
+            const calibVideo = _id('calib-video');
+            gameVideo.srcObject = calibVideo.srcObject;
+            
+            const gameCanvas = _id('game-canvas');
+            gameCanvas.width = calibVideo.videoWidth;
+            gameCanvas.height = calibVideo.videoHeight;
+            
+            navTo('screen-game');
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = state.questions[state.currentQIndex];
+            _id('game-q-num').textContent = `${state.currentQIndex + 1} / ${state.questions.length}`;
+            _id('game-subject').textContent = state.subjectName;
+            _id('game-question').textContent = q.pertanyaan;
+            
+            _id('game-explanation').classList.add('hidden');
+            _id('question-card').classList.remove('scale-75', 'opacity-50');
+            
+            lockZone = false;
+            currentZone = 'center';
+            updateZone('center');
+            
+            // Give 2 seconds to read before countdown
+            setTimeout(() => {
+                startCountdown(5);
+            }, 2000);
+        }
+
+        function startCountdown(seconds) {
+            const el = _id('game-countdown');
+            let sec = seconds;
+            
+            el.textContent = sec;
+            el.classList.remove('opacity-0');
+            el.classList.add('countdown-anim');
+            playTone('tick');
+
+            countdownTimer = setInterval(() => {
+                sec--;
+                if(sec > 0) {
+                    el.textContent = sec;
+                    // Retrigger animation
+                    el.classList.remove('countdown-anim');
+                    void el.offsetWidth; // trigger reflow
+                    el.classList.add('countdown-anim');
+                    playTone('tick');
+                } else {
+                    clearInterval(countdownTimer);
+                    el.classList.add('opacity-0');
+                    lockAnswer();
+                }
+            }, 1000);
+        }
+
+        function lockAnswer() {
+            lockZone = true;
+            const q = state.questions[state.currentQIndex];
+            const correctAns = q.jawaban_benar.toUpperCase(); // 'BENAR' or 'SALAH'
+            
+            let userAns = 'KOSONG';
+            if(currentZone === 'left') userAns = 'BENAR';
+            if(currentZone === 'right') userAns = 'SALAH';
+
+            const isCorrect = (userAns === correctAns);
+            
+            if(userAns === 'KOSONG') {
+                state.unanswered++;
+            } else if (isCorrect) {
+                state.correct++;
+                state.score += 10;
+            } else {
+                state.wrong++;
+            }
+
+            showExplanation(isCorrect, userAns === 'KOSONG', q.penjelasan);
+        }
+
+        function showExplanation(isCorrect, isBlank, explanationText) {
+            _id('question-card').classList.add('scale-75', 'opacity-50'); // push back
+            const expl = _id('game-explanation');
+            const icon = _id('expl-icon');
+            const title = _id('expl-title');
+            const text = _id('expl-text');
+
+            expl.classList.remove('hidden');
+            expl.classList.add('flex');
+
+            text.textContent = explanationText || "Tidak ada penjelasan tambahan.";
+
+            if (isBlank) {
+                icon.innerHTML = '<i class="fa-solid fa-clock text-gray-400"></i>';
+                title.textContent = "WAKTU HABIS!";
+                title.className = "text-5xl font-heading font-bold text-gray-300 mb-4 drop-shadow-lg";
+                playTone('wrong');
+            } else if (isCorrect) {
+                icon.innerHTML = '<i class="fa-solid fa-star text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.8)] animate-spin-slow"></i>';
+                title.textContent = "HEBAT! BENAR!";
+                title.className = "text-5xl font-heading font-bold text-green-400 mb-4 drop-shadow-lg";
+                playTone('correct');
+            } else {
+                icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500 drop-shadow-lg"></i>';
+                title.textContent = "BELUM TEPAT!";
+                title.className = "text-5xl font-heading font-bold text-red-400 mb-4 drop-shadow-lg";
+                playTone('wrong');
+            }
+        }
+
+        function nextQuestion() {
+            state.currentQIndex++;
+            if(state.currentQIndex < state.questions.length) {
+                showQuestion();
+            } else {
+                finishGame();
+            }
+        }
+
+        function finishGame() {
+            isPlaying = false;
+            stopCamera();
+            
+            // Calculate final percentage score
+            const finalScore = Math.round((state.correct / state.questions.length) * 100);
+            
+            _id('res-total').textContent = state.questions.length;
+            _id('res-benar').textContent = state.correct;
+            _id('res-salah').textContent = state.wrong;
+            _id('res-kosong').textContent = state.unanswered;
+            _id('res-score').textContent = finalScore;
+
+            let mot = "Luar biasa! Terus tingkatkan belajarmu.";
+            if(finalScore < 50) mot = "Jangan menyerah, ayo belajar lagi!";
+            if(finalScore === 100) mot = "SEMPURNA! Kamu memang juara!";
+            _id('result-motivation').textContent = mot;
+
+            navTo('screen-result');
+
+            // Save to backend
+            fetchAPI('saveResult', {
+                kelas_id: state.classId,
+                mata_pelajaran: state.subjectName,
+                total_soal: state.questions.length,
+                jawaban_benar: state.correct,
+                jawaban_salah: state.wrong,
+                tidak_menjawab: state.unanswered,
+                nilai: finalScore
+            });
+        }
+
+        // ==========================================
+        // HIDDEN LOGIN & DASHBOARD
+        // ==========================================
+        let secretClicks = 0;
+        let secretTimer;
+        let loginRole = 'guru'; // 'guru' or 'admin'
+
+        function triggerHiddenLogin() {
+            secretClicks++;
+            clearTimeout(secretTimer);
+            if(secretClicks >= 5) {
+                secretClicks = 0;
+                setLoginType('guru'); // Default
+                navTo('screen-login');
+            } else {
+                secretTimer = setTimeout(() => { secretClicks = 0; }, 3000);
+            }
+        }
+
+        function setLoginType(type) {
+            loginRole = type;
+            _id('login-username').value = '';
+            _id('login-password').value = '';
+            
+            if(type === 'guru') {
+                _id('tab-login-guru').className = "flex-1 py-2 font-bold rounded-md bg-white shadow text-blue-600 transition-all";
+                _id('tab-login-admin').className = "flex-1 py-2 font-bold rounded-md text-gray-500 hover:text-gray-700 transition-all bg-transparent";
+                _id('lbl-username').textContent = "Nama Guru (Sesuai Data)";
+                _id('wrap-password').classList.add('hide');
+                _id('login-password').removeAttribute('required');
+            } else {
+                _id('tab-login-admin').className = "flex-1 py-2 font-bold rounded-md bg-white shadow text-blue-600 transition-all";
+                _id('tab-login-guru').className = "flex-1 py-2 font-bold rounded-md text-gray-500 hover:text-gray-700 transition-all bg-transparent";
+                _id('lbl-username').textContent = "Username Admin";
+                _id('wrap-password').classList.remove('hide');
+                _id('login-password').setAttribute('required', 'true');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = _id('btn-login-text');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> MEMPROSES...';
+            
+            const payload = {
+                role: loginRole,
+                username: _id('login-username').value.trim()
+            };
+            if(loginRole === 'admin') {
+                payload.password = _id('login-password').value;
+            }
+
+            const res = await fetchAPI('login', payload);
+            btn.innerHTML = 'MASUK';
+
+            if(res.status === 'success') {
+                state.token = res.data.token;
+                localStorage.setItem('bmq_token', state.token);
+                state.user = res.data.user;
+                loadDashboard();
+            } else {
+                showModal("Gagal Masuk", res.message, "error");
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('bmq_token');
+            state.token = null;
+            state.user = null;
+            navTo('screen-home');
+        }
+
+        // --- DASHBOARD UI BUILDER ---
+        async function loadDashboard() {
+            navTo('screen-dashboard');
+            const dash = _id('dash-content');
+            dash.innerHTML = '<div class="text-center py-20"><i class="fa-solid fa-spinner fa-spin text-4xl text-gray-400"></i></div>';
+            
+            _id('dash-subtitle').textContent = `Role: ${state.user.role.toUpperCase()} | ${state.user.role === 'guru' ? 'Kelas: ' + state.user.kelas_id : 'Akses Penuh'}`;
+            _id('dash-title').textContent = `Halo, ${state.user.nama}!`;
+
+            if(state.user.role === 'admin') {
+                renderAdminDashboard(dash);
+            } else {
+                renderTeacherDashboard(dash);
+            }
+        }
+
+        // TEACHER DASHBOARD
+        async function renderTeacherDashboard(container) {
+            const res = await fetchAPI('teacherGetQuestions');
+            if(res.status !== 'success') {
+                container.innerHTML = `<p class="text-red-500">${res.message}</p>`; return;
+            }
+            
+            const questions = res.data;
+            
+            let html = `
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">Bank Soal Kelas ${state.user.kelas_id}</h3>
+                    <button onclick="showQuestionForm()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow">
+                        <i class="fa-solid fa-plus mr-2"></i>Tambah Soal
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow border border-gray-200 overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 text-sm uppercase">
+                                <th class="p-4 border-b">Mapel</th>
+                                <th class="p-4 border-b">Pertanyaan</th>
+                                <th class="p-4 border-b">Kunci</th>
+                                <th class="p-4 border-b">Status</th>
+                                <th class="p-4 border-b text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if(questions.length === 0) {
+                html += `<tr><td colspan="5" class="p-8 text-center text-gray-500">Belum ada soal. Silakan tambahkan.</td></tr>`;
+            } else {
+                questions.forEach(q => {
+                    html += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-4 font-bold text-blue-600">${q.mata_pelajaran}</td>
+                            <td class="p-4 text-gray-800 max-w-xs truncate" title="${q.pertanyaan}">${q.pertanyaan}</td>
+                            <td class="p-4 font-bold ${q.jawaban_benar.toUpperCase()==='BENAR' ? 'text-green-600':'text-red-600'}">${q.jawaban_benar.toUpperCase()}</td>
+                            <td class="p-4">
+                                <span class="px-2 py-1 text-xs rounded-full ${q.status==='AKTIF' ? 'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${q.status}</span>
+                            </td>
+                            <td class="p-4 text-center">
+                                <button onclick="deleteQuestion('${q.question_id}')" class="text-red-500 hover:text-red-700 p-2"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            html += `</tbody></table></div>`;
+            
+            // Add Form Container (Hidden by default)
+            html += `
+                <div id="form-question-container" class="hide mt-8 bg-white p-6 rounded-xl shadow border border-blue-200">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Tambah Soal Baru</h3>
+                    <form id="form-question" onsubmit="submitQuestion(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="text-sm font-bold text-gray-600">Mata Pelajaran</label>
+                            <input type="text" id="q-mapel" required class="w-full p-2 border rounded" placeholder="Contoh: Matematika"></div>
+                            <div><label class="text-sm font-bold text-gray-600">Topik</label>
+                            <input type="text" id="q-topik" required class="w-full p-2 border rounded" placeholder="Contoh: Penjumlahan"></div>
+                        </div>
+                        <div><label class="text-sm font-bold text-gray-600">Pertanyaan / Pernyataan (Singkat & Jelas)</label>
+                        <textarea id="q-text" required class="w-full p-2 border rounded h-20" placeholder="Contoh: 5 + 5 = 10"></textarea></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="text-sm font-bold text-gray-600">Jawaban Benar</label>
+                            <select id="q-ans" class="w-full p-2 border rounded font-bold"><option value="BENAR">BENAR</option><option value="SALAH">SALAH</option></select></div>
+                            <div><label class="text-sm font-bold text-gray-600">Status</label>
+                            <select id="q-status" class="w-full p-2 border rounded"><option value="AKTIF">AKTIF</option><option value="NONAKTIF">NONAKTIF</option></select></div>
+                        </div>
+                        <div><label class="text-sm font-bold text-gray-600">Penjelasan (Opsional)</label>
+                        <input type="text" id="q-expl" class="w-full p-2 border rounded" placeholder="Contoh: Karena 5 ditambah 5 hasilnya 10."></div>
+                        <div class="flex justify-end gap-2 mt-4">
+                            <button type="button" onclick="_id('form-question-container').classList.add('hide')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded font-bold">Batal</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded font-bold">Simpan Soal</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function showQuestionForm() {
+            _id('form-question').reset();
+            _id('form-question-container').classList.remove('hide');
+            _id('form-question-container').scrollIntoView({behavior: 'smooth'});
+        }
+
+        async function submitQuestion(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.innerHTML = 'Menyimpan...';
+            btn.disabled = true;
+
+            const payload = {
+                mata_pelajaran: _id('q-mapel').value.trim().toUpperCase(),
+                topik: _id('q-topik').value.trim(),
+                pertanyaan: _id('q-text').value.trim(),
+                jawaban_benar: _id('q-ans').value,
+                penjelasan: _id('q-expl').value.trim(),
+                status: _id('q-status').value
+            };
+
+            const res = await fetchAPI('teacherSaveQuestion', payload);
+            if(res.status === 'success') {
+                loadDashboard(); // Reload
+            } else {
+                showModal("Gagal", res.message, "error");
+                btn.innerHTML = 'Simpan Soal';
+                btn.disabled = false;
+            }
+        }
+
+        function deleteQuestion(id) {
+            showModal("Hapus Soal", "Yakin ingin menghapus soal ini secara permanen?", "warning", async () => {
+                const res = await fetchAPI('teacherDeleteQuestion', { question_id: id });
+                if(res.status === 'success') loadDashboard();
+                else showModal("Gagal", res.message, "error");
+            });
+        }
+
+        // ADMIN DASHBOARD
+        async function renderAdminDashboard(container) {
+            const res = await fetchAPI('adminGetUsers');
+            if(res.status !== 'success') { container.innerHTML = "Gagal memuat data."; return; }
+            
+            const users = res.data;
+            
+            let html = `
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-800">Manajemen Akun Guru</h3>
+                    <button onclick="showUserForm()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow">
+                        <i class="fa-solid fa-user-plus mr-2"></i>Tambah Guru
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow border border-gray-200 overflow-x-auto mb-8">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 text-sm uppercase">
+                                <th class="p-4 border-b">Nama Guru</th>
+                                <th class="p-4 border-b text-center">Kelas Tugas</th>
+                                <th class="p-4 border-b">Role</th>
+                                <th class="p-4 border-b">Status</th>
+                                <th class="p-4 border-b text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            users.forEach(u => {
+                if(u.role === 'admin') return; // Hide admin from list to prevent accidental edits
+                html += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4 font-bold text-gray-800">${u.nama_guru}</td>
+                        <td class="p-4 text-center font-bold text-blue-600">${u.kelas_id}</td>
+                        <td class="p-4 text-xs text-gray-500">${u.role}</td>
+                        <td class="p-4"><span class="px-2 py-1 text-xs rounded-full ${u.status==='AKTIF' ? 'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${u.status}</span></td>
+                        <td class="p-4 text-center">
+                            <button onclick="deleteUser('${u.user_id}')" class="text-red-500 hover:text-red-700 p-2" title="Hapus Guru"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table></div>`;
+
+            // Add Form Container
+            html += `
+                <div id="form-user-container" class="hide mt-4 bg-white p-6 rounded-xl shadow border border-blue-200 max-w-2xl">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Tambah / Edit Guru</h3>
+                    <form id="form-user" onsubmit="submitUser(event)" class="space-y-4">
+                        <div>
+                            <label class="text-sm font-bold text-gray-600">Nama Lengkap Guru (Digunakan untuk Login)</label>
+                            <input type="text" id="u-nama" required class="w-full p-2 border rounded" placeholder="Contoh: Budi Santoso">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-sm font-bold text-gray-600">Tugas Kelas</label>
+                                <select id="u-kelas" class="w-full p-2 border rounded font-bold text-blue-600">
+                                    <option value="1">Kelas 1</option><option value="2">Kelas 2</option>
+                                    <option value="3">Kelas 3</option><option value="4">Kelas 4</option>
+                                    <option value="5">Kelas 5</option><option value="6">Kelas 6</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-bold text-gray-600">Status</label>
+                                <select id="u-status" class="w-full p-2 border rounded">
+                                    <option value="AKTIF">AKTIF</option>
+                                    <option value="NONAKTIF">NONAKTIF</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 mt-4">
+                            <button type="button" onclick="_id('form-user-container').classList.add('hide')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded font-bold">Batal</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded font-bold">Simpan Guru</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function showUserForm() {
+            _id('form-user').reset();
+            _id('form-user-container').classList.remove('hide');
+        }
+
+        async function submitUser(e) {
+            e.preventDefault();
+            const payload = {
+                nama_guru: _id('u-nama').value.trim(),
+                kelas_id: _id('u-kelas').value,
+                status: _id('u-status').value
+            };
+            const res = await fetchAPI('adminSaveUser', payload);
+            if(res.status === 'success') loadDashboard();
+            else showModal("Gagal", res.message, "error");
+        }
+
+        function deleteUser(id) {
+            showModal("Hapus Guru", "Semua akses guru ini akan dicabut. Lanjutkan?", "warning", async () => {
+                const res = await fetchAPI('adminDeleteUser', { user_id: id });
+                if(res.status === 'success') loadDashboard();
+                else showModal("Gagal", res.message, "error");
+            });
+        }
+
+        // Check auth on load
+        window.onload = async () => {
+            if(state.token) {
+                // Verify token silently
+                const res = await fetchAPI('verify');
+                if(res.status === 'success') {
+                    state.user = res.data.user;
+                } else {
+                    localStorage.removeItem('bmq_token');
+                    state.token = null;
+                }
+            }
+        };
+    </script>
+</body>
+</html>
